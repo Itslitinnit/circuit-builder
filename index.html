@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CircuitDraft — Schematic Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f8f8f6;
+    --surface: #ffffff;
+    --border: #e2e2de;
+    --border-soft: #efefec;
+    --text: #1a1a18;
+    --text-muted: #8a8a85;
+    --accent: #1a1a18;
+    --accent-hover: #333330;
+    --wire: #2a2a28;
+    --grid: #e8e8e4;
+    --selected: #0066ff;
+    --selected-bg: rgba(0,102,255,0.06);
+    --component-bg: #ffffff;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
+    --radius: 6px;
+    --font-mono: 'DM Mono', monospace;
+    --font-sans: 'DM Sans', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── TOPBAR ── */
+  header {
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 24px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo-dot { width: 6px; height: 6px; background: var(--text); border-radius: 50%; }
+  .header-sep { width: 1px; height: 20px; background: var(--border); }
+  .header-tools { display: flex; align-items: center; gap: 4px; flex: 1; }
+  .tool-btn {
+    height: 30px; padding: 0 10px;
+    border: 1px solid transparent;
+    background: none;
+    border-radius: var(--radius);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tool-btn:hover { background: var(--bg); color: var(--text); border-color: var(--border); }
+  .tool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tool-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .header-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .btn-export {
+    height: 30px; padding: 0 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-sans);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: background 0.15s;
+  }
+  .btn-export:hover { background: var(--accent-hover); }
+  .btn-export svg { width: 13px; height: 13px; }
+  .btn-outline {
+    height: 30px; padding: 0 12px;
+    background: none;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-sans);
+    font-size: 12px; font-weight: 400;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
+
+  /* ── MAIN LAYOUT ── */
+  .workspace { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── SIDEBAR ── */
+  aside {
+    width: 200px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar-section { padding: 12px 0; border-bottom: 1px solid var(--border-soft); }
+  .sidebar-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding: 0 14px 8px;
+  }
+  .component-list { display: flex; flex-direction: column; gap: 1px; padding: 0 8px; }
+  .comp-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 8px;
+    border-radius: 5px;
+    cursor: grab;
+    font-size: 12px;
+    color: var(--text);
+    transition: background 0.12s;
+    user-select: none;
+    border: 1px solid transparent;
+  }
+  .comp-item:hover { background: var(--bg); border-color: var(--border-soft); }
+  .comp-item:active { cursor: grabbing; }
+  .comp-icon {
+    width: 32px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .comp-icon svg { width: 100%; height: 100%; }
+  .comp-name { font-size: 12px; font-weight: 400; color: var(--text); }
+  .comp-shortcut {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+    padding: 1px 4px;
+  }
+
+  /* ── CANVAS AREA ── */
+  .canvas-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  #grid-canvas {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  #main-canvas {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    cursor: crosshair;
+  }
+
+  /* ── STATUS BAR ── */
+  .statusbar {
+    height: 26px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 16px;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .status-item {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .status-item span { color: var(--text); }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    width: 200px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .panel-section { padding: 14px; border-bottom: 1px solid var(--border-soft); }
+  .panel-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .prop-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .prop-label { font-size: 11px; color: var(--text-muted); }
+  .prop-input {
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .prop-input:focus { border-color: var(--selected); }
+  .no-selection {
+    padding: 14px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: #fff;
+    padding: 8px 16px; border-radius: 6px;
+    font-size: 12px; font-family: var(--font-mono);
+    opacity: 0; transition: opacity 0.2s;
+    pointer-events: none; z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.25);
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    width: 680px; max-width: 95vw;
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .modal-title { font-size: 14px; font-weight: 500; }
+  .modal-subtitle {
+    padding: 10px 20px;
+    font-size: 11px; color: var(--text-muted);
+    border-bottom: 1px solid var(--border-soft);
+    flex-shrink: 0;
+  }
+  .modal-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 13px; color: var(--text-muted);
+    width: 24px; height: 24px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+  }
+  .modal-close:hover { background: var(--bg); color: var(--text); }
+  .examples-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; padding: 16px 20px;
+    overflow-y: auto;
+  }
+  .example-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--bg);
+  }
+  .example-card:hover { border-color: var(--selected); background: var(--selected-bg); }
+  .example-preview {
+    width: 100%; height: 90px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    background: #fff;
+    border: 1px solid var(--border-soft);
+  }
+  .example-preview canvas { display: block; }
+  .example-name { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .example-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+  .ctx-menu {
+    position: fixed; z-index: 500;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    min-width: 140px;
+    padding: 4px;
+    display: none;
+  }
+  .ctx-menu.show { display: block; }
+  .ctx-item {
+    padding: 7px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.1s;
+  }
+  .ctx-item:hover { background: var(--bg); }
+  .ctx-item.danger { color: #e03c3c; }
+  .ctx-sep { height: 1px; background: var(--border-soft); margin: 3px 0; }
+
+  .rot-btn {
+    flex: 1; min-width: 52px;
+    height: 28px; padding: 0 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-sans);
+    font-size: 11px; font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+  .rot-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header>
+  <div class="logo"><div class="logo-dot"></div> CircuitDraft</div>
+  <div class="header-sep"></div>
+  <div class="header-tools">
+    <button class="tool-btn active" id="tool-select" title="Select (V)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l10 6-5 1-2 5L3 2z"/></svg> Select
+    </button>
+    <button class="tool-btn" id="tool-wire" title="Wire (W)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12M10 5l3 3-3 3"/></svg> Wire
+    </button>
+    <button class="tool-btn" id="tool-delete" title="Delete (Del)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l8 8M12 4l-8 8"/></svg> Delete
+    </button>
+    <div class="header-sep"></div>
+    <button class="tool-btn" id="btn-undo" title="Undo (Ctrl+Z)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8a5 5 0 1 0 1.5-3.5L2 2v4h4"/></svg> Undo
+    </button>
+    <button class="tool-btn" id="btn-clear" title="Clear canvas">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M5 8h6"/></svg> Clear
+    </button>
+    <button class="tool-btn" id="btn-select-all" title="Select All (Ctrl+A)">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="3,2"/><path d="M5 8h6M8 5v6"/></svg> Select All
+    </button>
+  </div>
+  <div class="header-actions">
+
+    <button class="btn-outline" id="btn-export-png">PNG</button>
+
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="workspace">
+
+  <!-- LEFT SIDEBAR -->
+  <aside>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Basic</div>
+      <div class="component-list">
+        <div class="comp-item" draggable="true" data-type="resistor">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="6" y2="11"/><rect x="6" y="4" width="28" height="14" rx="2"/><line x1="34" y1="11" x2="40" y2="11"/></svg></div>
+          <span class="comp-name">Resistor</span><span class="comp-shortcut">R</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="capacitor">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="16" y2="11"/><line x1="16" y1="3" x2="16" y2="19"/><line x1="20" y1="3" x2="20" y2="19"/><line x1="20" y1="11" x2="40" y2="11"/></svg></div>
+          <span class="comp-name">Capacitor</span><span class="comp-shortcut">C</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="inductor">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="6" y2="11"/><path d="M6 11 q3-8 6 0 q3-8 6 0 q3-8 6 0 q3-8 6 0"/><line x1="30" y1="11" x2="40" y2="11"/></svg></div>
+          <span class="comp-name">Inductor</span><span class="comp-shortcut">L</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="ground">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="20" y1="2" x2="20" y2="11"/><line x1="10" y1="11" x2="30" y2="11"/><line x1="13" y1="15" x2="27" y2="15"/><line x1="16" y1="19" x2="24" y2="19"/></svg></div>
+          <span class="comp-name">Ground</span><span class="comp-shortcut">G</span>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Sources</div>
+      <div class="component-list">
+        <div class="comp-item" draggable="true" data-type="voltage">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="9" y2="11"/><circle cx="20" cy="11" r="10"/><line x1="30" y1="11" x2="40" y2="11"/><text x="16" y="15" fill="#1a1a18" stroke="none" font-size="9" font-family="DM Mono">V</text></svg></div>
+          <span class="comp-name">Voltage Src</span><span class="comp-shortcut">V</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="current">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="9" y2="11"/><circle cx="20" cy="11" r="10"/><line x1="30" y1="11" x2="40" y2="11"/><line x1="20" y1="6" x2="20" y2="16"/><path d="M17 13l3 3 3-3"/></svg></div>
+          <span class="comp-name">Current Src</span><span class="comp-shortcut">I</span>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Active</div>
+      <div class="component-list">
+        <div class="comp-item" draggable="true" data-type="diode">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="13" y2="11"/><polygon points="13,4 13,18 27,11" stroke="#1a1a18" fill="none"/><line x1="27" y1="4" x2="27" y2="18"/><line x1="27" y1="11" x2="40" y2="11"/></svg></div>
+          <span class="comp-name">Diode</span><span class="comp-shortcut">D</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="npn">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="5" x2="18" y2="17"/><line x1="18" y1="7" x2="28" y2="3"/><line x1="18" y1="15" x2="28" y2="19"/><line x1="28" y1="3" x2="28" y2="1"/><line x1="28" y1="19" x2="28" y2="21"/><line x1="8" y1="11" x2="18" y2="11"/><path d="M24 16 l2 2"/></svg></div>
+          <span class="comp-name">NPN BJT</span><span class="comp-shortcut">T</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="opamp">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><polygon points="6,2 6,20 34,11" fill="none"/><line x1="0" y1="7" x2="6" y2="7"/><line x1="0" y1="15" x2="6" y2="15"/><line x1="34" y1="11" x2="40" y2="11"/><text x="8" y="10" fill="#1a1a18" stroke="none" font-size="6">+</text><text x="8" y="17" fill="#1a1a18" stroke="none" font-size="7">−</text></svg></div>
+          <span class="comp-name">Op-Amp</span><span class="comp-shortcut">O</span>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Misc</div>
+      <div class="component-list">
+        <div class="comp-item" draggable="true" data-type="switch">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="10" y2="11"/><circle cx="10" cy="11" r="2" fill="none"/><line x1="12" y1="8" x2="28" y2="11"/><circle cx="28" cy="11" r="2" fill="none"/><line x1="30" y1="11" x2="40" y2="11"/></svg></div>
+          <span class="comp-name">Switch</span><span class="comp-shortcut">S</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="led">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="13" y2="11"/><polygon points="13,4 13,18 27,11" fill="none"/><line x1="27" y1="4" x2="27" y2="18"/><line x1="27" y1="11" x2="40" y2="11"/><line x1="29" y1="4" x2="33" y2="1"/><line x1="31" y1="7" x2="35" y2="4"/></svg></div>
+          <span class="comp-name">LED</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="lamp">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="9" y2="11"/><circle cx="20" cy="11" r="10"/><line x1="30" y1="11" x2="40" y2="11"/><line x1="14" y1="17" x2="26" y2="5"/><line x1="14" y1="5" x2="26" y2="17"/></svg></div>
+          <span class="comp-name">Lamp</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="voltmeter">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="9" y2="11"/><circle cx="20" cy="11" r="10"/><line x1="30" y1="11" x2="40" y2="11"/><text x="16" y="15" fill="#1a1a18" stroke="none" font-size="9" font-family="DM Mono">V</text></svg></div>
+          <span class="comp-name">Voltmeter</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="ammeter">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="9" y2="11"/><circle cx="20" cy="11" r="10"/><line x1="30" y1="11" x2="40" y2="11"/><text x="16" y="15" fill="#1a1a18" stroke="none" font-size="9" font-family="DM Mono">A</text></svg></div>
+          <span class="comp-name">Ammeter</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="node">
+          <div class="comp-icon"><svg viewBox="0 0 40 22" fill="none" stroke="#1a1a18" stroke-width="1.5"><circle cx="20" cy="11" r="4" fill="#1a1a18"/></svg></div>
+          <span class="comp-name">Node</span><span class="comp-shortcut">N</span>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Logic Gates</div>
+      <div class="component-list">
+        <div class="comp-item" draggable="true" data-type="and">
+          <div class="comp-icon"><svg viewBox="0 0 44 28" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><path d="M8 4h14a14 14 0 0 1 0 20H8V4z"/><line x1="0" y1="9" x2="8" y2="9"/><line x1="0" y1="19" x2="8" y2="19"/><line x1="36" y1="14" x2="44" y2="14"/></svg></div>
+          <span class="comp-name">AND</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="or">
+          <div class="comp-icon"><svg viewBox="0 0 44 28" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><path d="M6 4Q14 4 22 4Q38 4 38 14Q38 24 22 24Q14 24 6 24Q12 14 6 4z"/><line x1="0" y1="9" x2="10" y2="9"/><line x1="0" y1="19" x2="10" y2="19"/><line x1="38" y1="14" x2="44" y2="14"/></svg></div>
+          <span class="comp-name">OR</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="nand">
+          <div class="comp-icon"><svg viewBox="0 0 48 28" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><path d="M8 4h14a14 14 0 0 1 0 20H8V4z"/><circle cx="38" cy="14" r="3"/><line x1="0" y1="9" x2="8" y2="9"/><line x1="0" y1="19" x2="8" y2="19"/><line x1="41" y1="14" x2="48" y2="14"/></svg></div>
+          <span class="comp-name">NAND</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="nor">
+          <div class="comp-icon"><svg viewBox="0 0 48 28" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><path d="M6 4Q14 4 22 4Q38 4 38 14Q38 24 22 24Q14 24 6 24Q12 14 6 4z"/><circle cx="41" cy="14" r="3"/><line x1="0" y1="9" x2="10" y2="9"/><line x1="0" y1="19" x2="10" y2="19"/><line x1="44" y1="14" x2="48" y2="14"/></svg></div>
+          <span class="comp-name">NOR</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="not">
+          <div class="comp-icon"><svg viewBox="0 0 44 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><polygon points="6,2 6,20 30,11" fill="none"/><circle cx="33" cy="11" r="3"/><line x1="0" y1="11" x2="6" y2="11"/><line x1="36" y1="11" x2="44" y2="11"/></svg></div>
+          <span class="comp-name">NOT</span>
+        </div>
+        <div class="comp-item" draggable="true" data-type="xor">
+          <div class="comp-icon"><svg viewBox="0 0 44 28" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><path d="M9 4Q17 4 25 4Q41 4 41 14Q41 24 25 24Q17 24 9 24Q15 14 9 4z"/><path d="M5 4Q11 14 5 24" fill="none"/><line x1="0" y1="9" x2="11" y2="9"/><line x1="0" y1="19" x2="11" y2="19"/><line x1="41" y1="14" x2="44" y2="14"/></svg></div>
+          <span class="comp-name">XOR</span>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Power</div>
+      <div class="component-list">
+        <div class="comp-item" draggable="true" data-type="battery">
+          <div class="comp-icon"><svg viewBox="0 0 44 22" fill="none" stroke="#1a1a18" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="11" x2="10" y2="11"/><line x1="10" y1="4" x2="10" y2="18"/><line x1="14" y1="7" x2="14" y2="15"/><line x1="18" y1="4" x2="18" y2="18"/><line x1="22" y1="7" x2="22" y2="15"/><line x1="26" y1="4" x2="26" y2="18"/><line x1="30" y1="7" x2="30" y2="15"/><line x1="34" y1="4" x2="34" y2="18"/><line x1="34" y1="11" x2="44" y2="11"/></svg></div>
+          <span class="comp-name">Battery</span><span class="comp-shortcut">B</span>
+        </div>
+
+      </div>
+    </div>
+  </aside>
+
+  <!-- CANVAS -->
+  <div class="canvas-area" id="canvas-area">
+    <canvas id="grid-canvas"></canvas>
+    <canvas id="main-canvas"></canvas>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="right-panel">
+    <div class="panel-section">
+      <div class="panel-title">Properties</div>
+      <div id="props-content">
+        <div class="no-selection">Select a component to edit its properties.</div>
+      </div>
+    </div>
+    <div class="panel-section" id="rotate-panel" style="display:none">
+      <div class="panel-title">Rotate</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="rot-btn" id="rot-ccw" title="Counter-clockwise (Shift+R)">↺ 90°</button>
+        <button class="rot-btn" id="rot-cw"  title="Clockwise (R)">↻ 90°</button>
+        <button class="rot-btn" id="rot-180" title="Flip 180°">↕ 180°</button>
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Canvas</div>
+      <div class="prop-row">
+        <div class="prop-label">Grid size</div>
+        <input type="number" class="prop-input" id="grid-size-input" value="20" min="10" max="40"/>
+      </div>
+      <div class="prop-row">
+        <div class="prop-label">Zoom</div>
+        <input type="number" class="prop-input" id="zoom-input" value="100" min="25" max="200" step="25"/>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div class="status-item">Tool: <span id="status-tool">Select</span></div>
+  <div class="status-item">Components: <span id="status-count">0</span></div>
+  <div class="status-item">Wires: <span id="status-wires">0</span></div>
+  <div class="status-item">Cursor: <span id="status-pos">0, 0</span></div>
+  <div class="status-item" style="margin-left:auto">Drag to place · Wire tool: click pins to connect · Esc to cancel wire</div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div class="ctx-menu" id="ctx-menu">
+  <div class="ctx-item" id="ctx-rotate-cw">↻ Rotate Clockwise</div>
+  <div class="ctx-item" id="ctx-rotate-ccw">↺ Rotate Counter-clockwise</div>
+  <div class="ctx-item" id="ctx-rotate-180">↕ Rotate 180°</div>
+  <div class="ctx-item" id="ctx-dupe">⧉ Duplicate</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" id="ctx-delete">✕ Delete</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+
+
+<script>
+const canvas = document.getElementById('main-canvas');
+const gridCanvas = document.getElementById('grid-canvas');
+const ctx = canvas.getContext('2d');
+const gctx = gridCanvas.getContext('2d');
+const area = document.getElementById('canvas-area');
+
+let GRID = 20;
+let zoom = 1;
+let components = [];
+let wires = [];
+let selectedComp = null;
+let selectedComps = []; // multi-select group
+let currentTool = 'select';
+let isDragging = false;
+let dragOffset = {x:0, y:0};
+let wireStart = null;   // {x,y} in world coords
+let wirePreview = null;
+let hoveredPin = null;  // {x,y,comp,pinIdx} — highlighted pin
+let history = [];
+let nextId = 1;
+
+// ── RESIZE ──
+function resize() {
+  canvas.width = gridCanvas.width = area.clientWidth;
+  canvas.height = gridCanvas.height = area.clientHeight;
+  drawGrid(); drawAll();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── GRID ──
+function drawGrid() {
+  gctx.clearRect(0,0,gridCanvas.width,gridCanvas.height);
+  const g = GRID * zoom;
+  gctx.strokeStyle = '#e4e4e0'; gctx.lineWidth = 0.5;
+  for(let x=0; x<gridCanvas.width; x+=g){gctx.beginPath();gctx.moveTo(x,0);gctx.lineTo(x,gridCanvas.height);gctx.stroke();}
+  for(let y=0; y<gridCanvas.height; y+=g){gctx.beginPath();gctx.moveTo(0,y);gctx.lineTo(gridCanvas.width,y);gctx.stroke();}
+  gctx.fillStyle = '#c8c8c4';
+  const step = GRID * 5 * zoom;
+  for(let x=0; x<gridCanvas.width; x+=step)
+    for(let y=0; y<gridCanvas.height; y+=step){gctx.beginPath();gctx.arc(x,y,1.2,0,Math.PI*2);gctx.fill();}
+}
+
+// ── SNAP ──
+function snap(val) { return Math.round(val / GRID) * GRID; }
+function snapPt(x,y) { return {x:snap(x/zoom)*zoom, y:snap(y/zoom)*zoom}; }
+function w2s(v) { return v * zoom; }   // world → screen
+function s2w(v) { return v / zoom; }   // screen → world
+
+// ── COMPONENT DEFINITIONS + PIN OFFSETS ──
+// pins: array of {x,y} relative to component center, in world units
+const COMP_DEFS = {
+  resistor:    { w:60, h:24, label:'R',   value:'1kΩ',  pins:[{x:-30,y:0},{x:30,y:0}] },
+  capacitor:   { w:50, h:28, label:'C',   value:'100nF',pins:[{x:-25,y:0},{x:25,y:0}] },
+  inductor:    { w:60, h:22, label:'L',   value:'10mH', pins:[{x:-30,y:0},{x:30,y:0}] },
+  ground:      { w:30, h:30, label:'GND', value:'',     pins:[{x:0,y:-15}] },
+  voltage:     { w:40, h:40, label:'V',   value:'5V',   pins:[{x:-20,y:0},{x:20,y:0}] },
+  current:     { w:40, h:40, label:'I',   value:'1A',   pins:[{x:-20,y:0},{x:20,y:0}] },
+  diode:       { w:50, h:26, label:'D',   value:'',     pins:[{x:-25,y:0},{x:25,y:0}] },
+  npn:         { w:44, h:44, label:'Q',   value:'',     pins:[{x:-22,y:0},{x:22,y:-18},{x:22,y:18}] },
+  opamp:       { w:56, h:40, label:'U',   value:'',     pins:[{x:-36,y:-10},{x:-36,y:10},{x:36,y:0}] },
+  switch:      { w:50, h:22, label:'SW',  value:'',     pins:[{x:-25,y:0},{x:25,y:0}] },
+  led:         { w:50, h:26, label:'LED', value:'',     pins:[{x:-25,y:0},{x:25,y:0}] },
+  node:        { w:14, h:14, label:'',    value:'',     pins:[{x:0,y:0}] },
+  // Logic gates
+  and:         { w:52, h:32, label:'',    value:'',     pins:[{x:-26,y:-8},{x:-26,y:8},{x:26,y:0}] },
+  or:          { w:52, h:32, label:'',    value:'',     pins:[{x:-26,y:-8},{x:-26,y:8},{x:26,y:0}] },
+  nand:        { w:56, h:32, label:'',    value:'',     pins:[{x:-28,y:-8},{x:-28,y:8},{x:28,y:0}] },
+  nor:         { w:56, h:32, label:'',    value:'',     pins:[{x:-28,y:-8},{x:-28,y:8},{x:28,y:0}] },
+  not:         { w:46, h:26, label:'',    value:'',     pins:[{x:-23,y:0},{x:23,y:0}] },
+  xor:         { w:52, h:32, label:'',    value:'',     pins:[{x:-26,y:-8},{x:-26,y:8},{x:26,y:0}] },
+  // Power
+  battery:     { w:60, h:24, label:'BAT', value:'9V',   pins:[{x:-30,y:0},{x:30,y:0}] },
+  lamp:        { w:44, h:44, label:'LP',  value:'',     pins:[{x:-22,y:0},{x:22,y:0}] },
+  voltmeter:   { w:44, h:44, label:'V',   value:'',     pins:[{x:-22,y:0},{x:22,y:0}] },
+  ammeter:     { w:44, h:44, label:'A',   value:'',     pins:[{x:-22,y:0},{x:22,y:0}] },
+};
+
+// ── GET WORLD-COORD PINS FOR A COMPONENT ──
+function getCompPins(c) {
+  const d = COMP_DEFS[c.type];
+  const cos = Math.cos(c.rot||0), sin = Math.sin(c.rot||0);
+  return d.pins.map(p => {
+    const rx = cos*p.x - sin*p.y;
+    const ry = sin*p.x + cos*p.y;
+    return { x: c.x + rx, y: c.y + ry };
+  });
+}
+
+// ── FIND NEAREST PIN WITHIN SNAP RADIUS ──
+const PIN_SNAP_RADIUS = 16; // screen pixels
+function findNearestPin(sx, sy, excludeComp=null) {
+  let best = null, bestDist = PIN_SNAP_RADIUS;
+  for(const c of components) {
+    if(c === excludeComp) continue;
+    for(const p of getCompPins(c)) {
+      const dist = Math.hypot(sx - w2s(p.x), sy - w2s(p.y));
+      if(dist < bestDist) { bestDist = dist; best = {x:p.x, y:p.y, comp:c}; }
+    }
+  }
+  return best;
+}
+
+// ── DRAW COMPONENT ──
+function drawComponent(c, isSelected) {
+  const isGrouped = selectedComps.includes(c);
+  ctx.save();
+  ctx.translate(w2s(c.x), w2s(c.y));
+  ctx.rotate(c.rot || 0);
+
+  const d = COMP_DEFS[c.type];
+  const w = d.w * zoom, h = d.h * zoom;
+  const s = zoom;
+
+  if(isSelected || isGrouped) {
+    ctx.fillStyle = isGrouped && !isSelected ? 'rgba(0,180,100,0.07)' : 'rgba(0,102,255,0.06)';
+    ctx.strokeStyle = isGrouped && !isSelected ? '#00b464' : '#0066ff';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.rect(-w/2-6,-h/2-6,w+12,h+12);
+    ctx.fill(); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.strokeStyle = '#1a1a18'; ctx.fillStyle = '#ffffff';
+  ctx.lineWidth = 1.5 * zoom; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  switch(c.type) {
+    case 'resistor':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+10*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-10*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.rect(-w/2+10*s,-h/2,w-20*s,h); ctx.stroke();
+      break;
+    case 'capacitor':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-4*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(4*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-4*s,-h/2); ctx.lineTo(-4*s,h/2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(4*s,-h/2); ctx.lineTo(4*s,h/2); ctx.stroke();
+      break;
+    case 'inductor':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+8*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-8*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath();
+      for(let i=0;i<4;i++){const bx=-w/2+8*s+i*11*s;ctx.moveTo(bx,0);ctx.bezierCurveTo(bx,-9*s,bx+11*s,-9*s,bx+11*s,0);}
+      ctx.stroke();
+      break;
+    case 'ground':
+      ctx.beginPath(); ctx.moveTo(0,-h/2); ctx.lineTo(0,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-13*s,0); ctx.lineTo(13*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-9*s,5*s); ctx.lineTo(9*s,5*s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-5*s,10*s); ctx.lineTo(5*s,10*s); ctx.stroke();
+      break;
+    case 'voltage':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+8*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-8*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,w/2-8*s,0,Math.PI*2); ctx.stroke();
+      ctx.font=`${8*s}px DM Mono`; ctx.fillStyle='#1a1a18'; ctx.textAlign='center';
+      ctx.fillText('V',0,3*s);
+      break;
+    case 'current':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+8*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-8*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,w/2-8*s,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,-8*s); ctx.lineTo(0,8*s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-4*s,4*s); ctx.lineTo(0,9*s); ctx.lineTo(4*s,4*s); ctx.stroke();
+      break;
+    case 'diode': case 'led':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+10*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-10*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2+10*s,-h/2); ctx.lineTo(-w/2+10*s,h/2); ctx.lineTo(w/2-10*s,0); ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-10*s,-h/2); ctx.lineTo(w/2-10*s,h/2); ctx.stroke();
+      if(c.type==='led'){ctx.beginPath();ctx.moveTo(w/2-6*s,-h/2);ctx.lineTo(w/2-2*s,-h/2-7*s);ctx.stroke();ctx.beginPath();ctx.moveTo(w/2-2*s,-h/2);ctx.lineTo(w/2+2*s,-h/2-7*s);ctx.stroke();}
+      break;
+    case 'npn':
+      ctx.beginPath(); ctx.moveTo(-8*s,-h/2+6*s); ctx.lineTo(-8*s,h/2-6*s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-8*s,-7*s); ctx.lineTo(8*s,-h/2+4*s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-8*s,7*s); ctx.lineTo(8*s,h/2-4*s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-8*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8*s,-h/2+4*s); ctx.lineTo(8*s,-h/2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8*s,h/2-4*s); ctx.lineTo(8*s,h/2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8*s-2*s,h/2-4*s-4*s); ctx.lineTo(8*s,h/2-4*s); ctx.lineTo(8*s-6*s,h/2-4*s+2*s); ctx.stroke();
+      break;
+    case 'opamp':
+      ctx.beginPath(); ctx.moveTo(-w/2,-h/2); ctx.lineTo(-w/2,h/2); ctx.lineTo(w/2,0); ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2-8*s,-h/4); ctx.lineTo(-w/2,-h/4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2-8*s,h/4); ctx.lineTo(-w/2,h/4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2+8*s,0); ctx.stroke();
+      ctx.font=`${7*s}px DM Mono`; ctx.fillStyle='#1a1a18'; ctx.textAlign='left';
+      ctx.fillText('+', -w/2+3*s, -h/4+3*s);
+      ctx.fillText('−', -w/2+3*s, h/4+3*s);
+      break;
+    case 'switch':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+10*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-10*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.arc(-w/2+10*s,0,2*s,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(w/2-10*s,0,2*s,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2+12*s,0); ctx.lineTo(w/2-13*s,-7*s); ctx.stroke();
+      break;
+    case 'node':
+      ctx.beginPath(); ctx.arc(0,0,4*s,0,Math.PI*2); ctx.fillStyle='#1a1a18'; ctx.fill();
+      break;
+
+    // ── LOGIC GATES ──
+    case 'and': case 'nand': {
+      const bx = c.type==='nand' ? -2*s : 0;
+      ctx.beginPath();
+      ctx.moveTo(-w/2+bx, -h/2); ctx.lineTo(0+bx, -h/2);
+      ctx.arc(0+bx, 0, h/2, -Math.PI/2, Math.PI/2);
+      ctx.lineTo(-w/2+bx, h/2); ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2-8*s,-h/4); ctx.lineTo(-w/2+bx,-h/4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2-8*s,h/4);  ctx.lineTo(-w/2+bx,h/4);  ctx.stroke();
+      if(c.type==='nand'){ctx.beginPath();ctx.arc(w/2-4*s,0,4*s,0,Math.PI*2);ctx.stroke();}
+      ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2+8*s,0); ctx.stroke();
+      break;
+    }
+    case 'or': case 'nor': case 'xor': {
+      const ox = c.type==='nor'||c.type==='xor' ? -2*s : 0;
+      ctx.beginPath();
+      ctx.moveTo(-w/2+ox, -h/2);
+      ctx.quadraticCurveTo(-w/4+ox, -h/2, w/2+ox, 0);
+      ctx.quadraticCurveTo(-w/4+ox, h/2, -w/2+ox, h/2);
+      ctx.quadraticCurveTo(-w/4+ox+8*s, 0, -w/2+ox, -h/2);
+      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2-8*s,-h/4); ctx.lineTo(-w/2+ox+4*s,-h/4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2-8*s,h/4);  ctx.lineTo(-w/2+ox+4*s,h/4);  ctx.stroke();
+      if(c.type==='nor'){ctx.beginPath();ctx.arc(w/2-4*s,0,4*s,0,Math.PI*2);ctx.stroke();}
+      if(c.type==='xor'){
+        ctx.beginPath();
+        ctx.moveTo(-w/2-4*s,-h/2);
+        ctx.quadraticCurveTo(-w/4-4*s,0,-w/2-4*s,h/2);
+        ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2+8*s,0); ctx.stroke();
+      break;
+    }
+    case 'not':
+      ctx.beginPath();
+      ctx.moveTo(-w/2,-h/2); ctx.lineTo(-w/2,h/2);
+      ctx.lineTo(w/2-8*s,0); ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(w/2-4*s,0,4*s,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w/2-8*s,0); ctx.lineTo(-w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2+8*s,0); ctx.stroke();
+      break;
+
+    // ── BATTERY ──
+    case 'battery':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+8*s,0); ctx.stroke();
+      for(let i=0;i<4;i++){
+        const bx=-w/2+8*s+i*11*s;
+        // long line
+        ctx.beginPath(); ctx.moveTo(bx,-h/2); ctx.lineTo(bx,h/2); ctx.stroke();
+        // short line
+        ctx.beginPath(); ctx.moveTo(bx+5*s,-h/3); ctx.lineTo(bx+5*s,h/3);
+        ctx.lineWidth=2.5*s; ctx.stroke(); ctx.lineWidth=1.5*s;
+        if(i<3){ ctx.beginPath(); ctx.moveTo(bx+5*s,0); ctx.lineTo(bx+11*s,0); ctx.stroke(); }
+      }
+      ctx.beginPath(); ctx.moveTo(-w/2+8*s+3*11*s+5*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      break;
+      
+    // ── LAMP ──
+    case 'lamp':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+8*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-8*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,w/2-8*s,0,Math.PI*2); ctx.stroke();
+      // X inside circle
+      ctx.beginPath(); ctx.moveTo(-8*s,-8*s); ctx.lineTo(8*s,8*s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8*s,-8*s); ctx.lineTo(-8*s,8*s); ctx.stroke();
+      break;
+
+    // ── VOLTMETER ──
+    case 'voltmeter':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+8*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-8*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,w/2-8*s,0,Math.PI*2); ctx.stroke();
+      ctx.font=`bold ${11*s}px DM Mono`; ctx.fillStyle='#1a1a18'; ctx.textAlign='center';
+      ctx.fillText('V', 0, 4*s);
+      break;
+
+    // ── AMMETER ──
+    case 'ammeter':
+      ctx.beginPath(); ctx.moveTo(-w/2,0); ctx.lineTo(-w/2+8*s,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w/2-8*s,0); ctx.lineTo(w/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,w/2-8*s,0,Math.PI*2); ctx.stroke();
+      ctx.font=`bold ${11*s}px DM Mono`; ctx.fillStyle='#1a1a18'; ctx.textAlign='center';
+      ctx.fillText('A', 0, 4*s);
+      break;
+  }
+
+  // Labels
+  if(c.type !== 'node') {
+    ctx.font = `${9*s}px DM Mono`; ctx.fillStyle = '#555550'; ctx.textAlign = 'center';
+    ctx.fillText(c.label||d.label, 0, -d.h/2*s - 5*s);
+    if(c.value) ctx.fillText(c.value, 0, d.h/2*s + 13*s);
+  }
+
+  ctx.restore();
+
+  // ── DRAW PINS (always visible when wire tool active, else on hover/select) ──
+  const pins = getCompPins(c);
+  pins.forEach(p => {
+    const sx = w2s(p.x), sy = w2s(p.y);
+    const isHovered = hoveredPin && Math.abs(hoveredPin.x - p.x) < 0.5 && Math.abs(hoveredPin.y - p.y) < 0.5;
+    const show = currentTool === 'wire';
+    if(!show) return;
+
+    ctx.save();
+    if(isHovered) {
+      // Big bright snap indicator
+      ctx.strokeStyle = '#0066ff'; ctx.fillStyle = 'rgba(0,102,255,0.15)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(sx, sy, 7*zoom, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#0066ff'; ctx.fillStyle = '#0066ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(sx, sy, 3.5*zoom, 0, Math.PI*2);
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = '#0066ff'; ctx.fillStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(sx, sy, 4*zoom, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+
+// ── DRAW WIRES ──
+function drawWire(w, preview=false) {
+  ctx.save();
+  ctx.strokeStyle = preview ? '#0066ff' : '#2a2a28';
+  ctx.lineWidth = 1.5 * zoom;
+  ctx.lineCap = 'round';
+  ctx.setLineDash(preview ? [5,4] : []);
+  ctx.beginPath();
+  ctx.moveTo(w2s(w.x1), w2s(w.y1));
+  ctx.lineTo(w2s(w.x1), w2s(w.y2));
+  ctx.lineTo(w2s(w.x2), w2s(w.y2));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ── DRAW ALL ──
+function drawAll() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  wires.forEach(w => drawWire(w));
+  if(wirePreview) drawWire(wirePreview, true);
+
+  // Draw wire-start indicator
+  if(wireStart) {
+    ctx.save();
+    ctx.strokeStyle = '#0066ff'; ctx.fillStyle = '#0066ff';
+    ctx.beginPath(); ctx.arc(w2s(wireStart.x), w2s(wireStart.y), 5*zoom, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  components.forEach(c => drawComponent(c, c === selectedComp));
+}
+
+// ── HIT TEST ──
+function hitComp(x, y) {
+  for(let i=components.length-1;i>=0;i--){
+    const c=components[i], d=COMP_DEFS[c.type];
+    const cos=Math.cos(-(c.rot||0)), sin=Math.sin(-(c.rot||0));
+    const dx=s2w(x)-c.x, dy=s2w(y)-c.y;
+    const lx=cos*dx-sin*dy, ly=sin*dx+cos*dy;
+    if(Math.abs(lx)<=d.w/2+8 && Math.abs(ly)<=d.h/2+8) return c;
+  }
+  return null;
+}
+
+// ── TOOL SWITCHING ──
+function setTool(t) {
+  currentTool = t;
+  document.querySelectorAll('.tool-btn[id^=tool-]').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('tool-'+t);
+  if(btn) btn.classList.add('active');
+  document.getElementById('status-tool').textContent = t.charAt(0).toUpperCase()+t.slice(1);
+  canvas.style.cursor = t==='wire'?'crosshair': t==='delete'?'not-allowed':'default';
+  wireStart=null; wirePreview=null; hoveredPin=null; selectedComps=[]; drawAll();
+}
+document.getElementById('tool-select').onclick = ()=>setTool('select');
+document.getElementById('tool-wire').onclick   = ()=>setTool('wire');
+document.getElementById('tool-delete').onclick = ()=>setTool('delete');
+
+// ── SELECT ALL ──
+function selectAll() {
+  setTool('select');
+  selectedComps = [...components];
+  selectedComp = null;
+  updateProps();
+  drawAll();
+  toast(`All ${selectedComps.length} components selected — drag to move`);
+}
+document.getElementById('btn-select-all').onclick = selectAll;
+
+// ── ROTATE ──
+function rotateComp(c, dir) {
+  // dir: +1 = clockwise 90°, -1 = counter-clockwise 90°
+  saveHistory();
+  c.rot = ((c.rot || 0) + dir * Math.PI / 2) % (Math.PI * 2);
+  drawAll();
+  updateProps();
+  toast(dir > 0 ? 'Rotated ↻ 90°' : 'Rotated ↺ 90°');
+}
+
+// ── KEYBOARD ──
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.key==='v'||e.key==='V') setTool('select');
+  if(e.key==='w'||e.key==='W') setTool('wire');
+  if(e.key==='Delete'||e.key==='Backspace') deleteSelected();
+  if(e.ctrlKey && e.key==='z') undo();
+  if(e.ctrlKey && e.key==='a') { e.preventDefault(); selectAll(); }
+  if(e.key==='Escape'){wireStart=null;wirePreview=null;selectedComp=null;selectedComps=[];hoveredPin=null;drawAll();updateProps();}
+  // R = rotate clockwise, Shift+R = rotate counter-clockwise
+  if(e.key==='r') { if(selectedComp) rotateComp(selectedComp, 1); }
+  if(e.key==='R') { if(selectedComp) rotateComp(selectedComp, -1); }
+  // arrow keys also rotate when component selected
+  if(e.key==='ArrowRight' && e.shiftKey) { if(selectedComp){ e.preventDefault(); rotateComp(selectedComp, 1); } }
+  if(e.key==='ArrowLeft'  && e.shiftKey) { if(selectedComp){ e.preventDefault(); rotateComp(selectedComp, -1); } }
+});
+
+// ── MOUSE ──
+canvas.addEventListener('mousedown', e=>{
+  if(e.button===2) return;
+  const {x,y}=canvasPos(e);
+
+  if(currentTool==='select'){
+    const c=hitComp(x,y);
+    if(c){
+      // If clicking a component that's part of the selected group, drag the whole group
+      if(selectedComps.length > 0 && selectedComps.includes(c)) {
+        isDragging=true;
+        dragOffset={x:x-w2s(c.x), y:y-w2s(c.y)};
+        // store initial positions for all group members
+        selectedComps.forEach(sc => { sc._dx = sc.x - c.x; sc._dy = sc.y - c.y; });
+        selectedComp=c;
+      } else {
+        saveHistory();
+        selectedComps=[];
+        selectedComp=c; isDragging=true; dragOffset={x:x-w2s(c.x),y:y-w2s(c.y)};
+        updateProps();
+      }
+    } else {
+      selectedComp=null; selectedComps=[]; updateProps();
+    }
+    drawAll();
+  }
+  else if(currentTool==='wire'){
+    // Snap to pin if nearby, else snap to grid
+    const pin = findNearestPin(x, y);
+    const wx = pin ? pin.x : s2w(snapPt(x,y).x);
+    const wy = pin ? pin.y : s2w(snapPt(x,y).y);
+
+    if(!wireStart){
+      wireStart={x:wx, y:wy};
+    } else {
+      saveHistory();
+      wires.push({x1:wireStart.x, y1:wireStart.y, x2:wx, y2:wy});
+      wireStart={x:wx, y:wy};
+      wirePreview=null; updateStatus(); drawAll();
+    }
+  }
+  else if(currentTool==='delete'){
+    const c=hitComp(x,y);
+    if(c){saveHistory();components=components.filter(cc=>cc!==c);selectedComp=null;updateStatus();drawAll();}
+    const wi=hitWire(x,y);
+    if(wi!==-1){saveHistory();wires.splice(wi,1);updateStatus();drawAll();}
+  }
+});
+
+canvas.addEventListener('mousemove', e=>{
+  const {x,y}=canvasPos(e);
+  const gx=Math.round(s2w(x)/GRID)*GRID, gy=Math.round(s2w(y)/GRID)*GRID;
+  document.getElementById('status-pos').textContent=`${gx}, ${gy}`;
+
+  if(isDragging && selectedComp){
+    const nx = snap(s2w(x-dragOffset.x));
+    const ny = snap(s2w(y-dragOffset.y));
+    if(selectedComps.length > 0) {
+      // Move entire group
+      selectedComps.forEach(sc => { sc.x = nx + (sc._dx||0); sc.y = ny + (sc._dy||0); });
+    } else {
+      selectedComp.x = nx; selectedComp.y = ny;
+    }
+    drawAll(); return;
+  }
+
+  if(currentTool==='wire'){
+    // Update hovered pin
+    const pin=findNearestPin(x,y);
+    hoveredPin=pin||null;
+    const wx=pin?pin.x:s2w(snapPt(x,y).x);
+    const wy=pin?pin.y:s2w(snapPt(x,y).y);
+    if(wireStart) wirePreview={x1:wireStart.x, y1:wireStart.y, x2:wx, y2:wy};
+    drawAll();
+  } else {
+    hoveredPin = null;
+    const c=hitComp(x,y);
+    hoveredPin=c?{comp:c}:null;
+    drawAll();
+  }
+});
+
+canvas.addEventListener('mouseup',()=>isDragging=false);
+canvas.addEventListener('dblclick',()=>{if(currentTool==='wire'){wireStart=null;wirePreview=null;drawAll();}});
+
+// ── CONTEXT MENU ──
+const ctxMenu=document.getElementById('ctx-menu');
+canvas.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  const {x,y}=canvasPos(e);
+  const c=hitComp(x,y);
+  if(c){selectedComp=c;updateProps();drawAll();ctxMenu.style.left=e.clientX+'px';ctxMenu.style.top=e.clientY+'px';ctxMenu.classList.add('show');}
+});
+document.addEventListener('click',()=>ctxMenu.classList.remove('show'));
+document.getElementById('ctx-rotate-cw').onclick  = ()=>{ if(selectedComp) rotateComp(selectedComp,  1); };
+document.getElementById('ctx-rotate-ccw').onclick = ()=>{ if(selectedComp) rotateComp(selectedComp, -1); };
+document.getElementById('ctx-rotate-180').onclick = ()=>{ if(selectedComp){ saveHistory(); selectedComp.rot=((selectedComp.rot||0)+Math.PI)%(Math.PI*2); drawAll(); toast('Rotated 180°'); } };document.getElementById('ctx-dupe').onclick=()=>{if(selectedComp){saveHistory();components.push({...selectedComp,x:selectedComp.x+GRID*3,y:selectedComp.y+GRID*3,id:nextId++});drawAll();updateStatus();}};
+document.getElementById('ctx-delete').onclick=()=>deleteSelected();
+
+// ── DRAG FROM SIDEBAR ──
+let dragType=null;
+document.querySelectorAll('.comp-item').forEach(el=>{el.addEventListener('dragstart',()=>dragType=el.dataset.type);});
+area.addEventListener('dragover',e=>e.preventDefault());
+area.addEventListener('drop',e=>{
+  e.preventDefault(); if(!dragType) return;
+  const r=canvas.getBoundingClientRect();
+  const pt=snapPt(e.clientX-r.left, e.clientY-r.top);
+  saveHistory();
+  const d=COMP_DEFS[dragType];
+  components.push({id:nextId++,type:dragType,x:s2w(pt.x),y:s2w(pt.y),rot:0,label:d.label,value:d.value});
+  dragType=null; updateStatus(); drawAll(); toast('Component placed');
+});
+
+// ── HIT WIRE ──
+function hitWire(x,y){
+  for(let i=0;i<wires.length;i++){
+    const w=wires[i];
+    if(ptOnSeg(x,y,w2s(w.x1),w2s(w.y1),w2s(w.x1),w2s(w.y2),7)||ptOnSeg(x,y,w2s(w.x1),w2s(w.y2),w2s(w.x2),w2s(w.y2),7)) return i;
+  }
+  return -1;
+}
+function ptOnSeg(px,py,ax,ay,bx,by,tol){
+  const l2=(bx-ax)**2+(by-ay)**2;
+  if(l2===0) return Math.hypot(px-ax,py-ay)<tol;
+  const t=Math.max(0,Math.min(1,((px-ax)*(bx-ax)+(py-ay)*(by-ay))/l2));
+  return Math.hypot(px-(ax+t*(bx-ax)),py-(ay+t*(by-ay)))<tol;
+}
+
+// ── ROTATE PANEL BUTTONS ──
+document.getElementById('rot-cw').onclick  = ()=>{ if(selectedComp) rotateComp(selectedComp,  1); };
+document.getElementById('rot-ccw').onclick = ()=>{ if(selectedComp) rotateComp(selectedComp, -1); };
+document.getElementById('rot-180').onclick = ()=>{ if(selectedComp){ saveHistory(); selectedComp.rot=((selectedComp.rot||0)+Math.PI)%(Math.PI*2); drawAll(); updateProps(); toast('Rotated 180°'); } };
+
+// ── PROPERTIES ──
+function updateProps(){
+  const cont=document.getElementById('props-content');
+  const rotPanel=document.getElementById('rotate-panel');
+  if(!selectedComp){
+    cont.innerHTML='<div class="no-selection">Select a component to edit its properties.</div>';
+    rotPanel.style.display='none';
+    return;
+  }
+  rotPanel.style.display='block';
+  const c=selectedComp;
+  const deg = Math.round(((c.rot||0) * 180 / Math.PI) % 360);
+  const displayDeg = deg < 0 ? deg + 360 : deg;
+  cont.innerHTML=`
+    <div class="prop-row"><div class="prop-label">Type</div><input class="prop-input" value="${c.type}" readonly/></div>
+    <div class="prop-row"><div class="prop-label">Label</div><input class="prop-input" id="prop-label" value="${c.label||''}"/></div>
+    <div class="prop-row"><div class="prop-label">Value</div><input class="prop-input" id="prop-value" value="${c.value||''}"/></div>
+    <div class="prop-row"><div class="prop-label">Rotation</div><input class="prop-input" value="${displayDeg}°" readonly style="color:var(--text-muted)"/></div>
+    <div class="prop-row"><div class="prop-label">X</div><input class="prop-input" id="prop-x" type="number" value="${c.x}"/></div>
+    <div class="prop-row"><div class="prop-label">Y</div><input class="prop-input" id="prop-y" type="number" value="${c.y}"/></div>
+  `;
+  document.getElementById('prop-label').oninput=e=>{c.label=e.target.value;drawAll();};
+  document.getElementById('prop-value').oninput=e=>{c.value=e.target.value;drawAll();};
+  document.getElementById('prop-x').oninput=e=>{c.x=parseInt(e.target.value)||c.x;drawAll();};
+  document.getElementById('prop-y').oninput=e=>{c.y=parseInt(e.target.value)||c.y;drawAll();};
+}
+
+function canvasPos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+function updateStatus(){document.getElementById('status-count').textContent=components.length;document.getElementById('status-wires').textContent=wires.length;}
+
+// ── HISTORY ──
+function saveHistory(){history.push({components:JSON.parse(JSON.stringify(components)),wires:JSON.parse(JSON.stringify(wires))});if(history.length>50)history.shift();}
+function undo(){if(!history.length)return;const s=history.pop();components=s.components;wires=s.wires;selectedComp=null;updateProps();updateStatus();drawAll();toast('Undo');}
+document.getElementById('btn-undo').onclick=undo;
+document.getElementById('btn-clear').onclick=()=>{if(!components.length&&!wires.length)return;saveHistory();components=[];wires=[];selectedComp=null;updateProps();updateStatus();drawAll();toast('Canvas cleared');};
+function deleteSelected(){if(!selectedComp)return;saveHistory();components=components.filter(c=>c!==selectedComp);selectedComp=null;updateProps();updateStatus();drawAll();}
+
+// ── TOAST ──
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+
+// ── SCROLL TO ZOOM ──
+area.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.1 : 0.1;
+  zoom = Math.min(3, Math.max(0.25, zoom + delta));
+  document.getElementById('zoom-input').value = Math.round(zoom * 100);
+  drawGrid(); drawAll();
+}, { passive: false });
+
+// ── GRID SIZE ──
+document.getElementById('grid-size-input').oninput=e=>{GRID=parseInt(e.target.value)||20;drawGrid();drawAll();};
+
+// ── ZOOM ──
+document.getElementById('zoom-input').oninput=e=>{zoom=(parseInt(e.target.value)||100)/100;drawGrid();drawAll();};
+
+// ── EXPORT PNG ──
+document.getElementById('btn-export-png').onclick=()=>{
+  if(!components.length&&!wires.length){toast('Nothing to export');return;}
+  const exp=document.createElement('canvas');
+  exp.width=canvas.width;exp.height=canvas.height;
+  const ec=exp.getContext('2d');
+  ec.fillStyle='#ffffff';ec.fillRect(0,0,exp.width,exp.height);
+  ec.drawImage(canvas,0,0);
+  const a=document.createElement('a');a.download='circuit.png';a.href=exp.toDataURL('image/png');a.click();
+  toast('Exported PNG');
+};
+
+drawAll();
+</script>
+</body>
+</html>
