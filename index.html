@@ -4,6 +4,17 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CircuitDraft — Schematic Builder</title>
+<meta name="description" content="A free browser-based circuit schematic drawing tool. Drag and drop components, connect wires, and export as PNG. No install needed." />
+<meta property="og:title" content="CircuitDraft — Circuit Schematic Builder" />
+<meta property="og:description" content="A free browser-based circuit schematic drawing tool for students. Drag and drop 25+ components, connect wires, export as PNG. No install needed." />
+<meta property="og:url" content="https://itslitinnit.github.io/circuit-builder" />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="https://itslitinnit.github.io/circuit-builder/preview.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="CircuitDraft — Circuit Schematic Builder" />
+<meta name="twitter:description" content="Free browser-based circuit schematic drawing tool. 25+ components, pin snapping, PNG export. No install needed." />
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -40,7 +51,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
-
+  
   header {
     height: 48px;
     background: var(--surface);
@@ -146,10 +157,10 @@
   }
   .btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
 
-
+  
   .workspace { display: flex; flex: 1; overflow: hidden; }
 
-
+  
   aside {
     width: 200px;
     background: var(--surface);
@@ -200,7 +211,7 @@
     padding: 1px 4px;
   }
 
-
+  
   .canvas-area {
     flex: 1;
     position: relative;
@@ -236,6 +247,7 @@
   }
   .status-item span { color: var(--text); }
 
+  
   .right-panel {
     width: 200px;
     background: var(--surface);
@@ -277,7 +289,7 @@
     line-height: 1.5;
   }
 
- 
+  
   .toast {
     position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
     background: var(--text); color: #fff;
@@ -289,7 +301,7 @@
   }
   .toast.show { opacity: 1; }
 
-
+  
   .modal-overlay {
     position: fixed; inset: 0; z-index: 1000;
     background: rgba(0,0,0,0.25);
